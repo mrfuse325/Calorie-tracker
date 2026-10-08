@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#185d48"><title>Daily Plate · Calorie tracker</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<header class="topbar"><a class="brand" href="/">◒ <span>Daily Plate</span></a><span class="badge">Your personal food diary</span></header>
+<main>
+  <section class="heading"><div><p class="eyebrow">A LITTLE MORE AWARE, EVERY DAY</p><h1>Your daily plate.</h1><p class="muted">Keep track of what fuels you.</p></div><button id="goals-open" class="secondary">Set targets</button></section>
+  <section class="daybar" aria-label="Diary date"><div><label for="diary-date">Viewing day</label><input type="date" id="diary-date" required></div><button class="secondary" id="today">Today</button><button id="add-open">+ Add food</button></section>
+  <div id="notice" role="status" aria-live="polite"></div><div id="error" role="alert" hidden></div><button id="retry" class="secondary" hidden>Retry loading diary</button>
+  <section id="summary" class="summary" aria-label="Daily nutrition totals"></section>
+  <section class="diary"><div class="section-heading"><h2>Food diary</h2><span id="entry-count" class="muted"></span></div><div id="meals"></div></section>
+  <p class="footnote">Saved in this browser on this device. Clearing browser data removes your diary. Backup and restore are planned for the next milestone.</p>
+</main>
+<dialog id="entry-dialog" aria-labelledby="entry-title">
+<form id="entry-form">
+  <div class="dialog-heading"><h2 id="entry-title">Add food</h2><button type="button" class="icon secondary" id="entry-close" aria-label="Close food form">×</button></div>
+  <label>Food name<input name="food_name" required maxlength="150" placeholder="e.g. Cooked rice" autocomplete="off"></label>
+  <div class="fields"><label>Meal<select name="meal"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="snack">Snack</option></select></label><label>Date<input type="date" name="diary_date" required></label></div>
+  <div class="fields"><label>Amount eaten<input name="quantity" type="number" min="0.000001" step="any" required value="100"></label><label>Unit<select name="unit"><option value="g">Grams</option><option value="ml">Milliliters</option><option value="serving">Servings / pieces</option></select></label></div>
+  <fieldset><legend>Nutrition basis</legend><p class="muted">Enter nutrients for the amount below, in the same unit as your food. For whole-entry values, match this to the amount eaten.</p><label id="basis-label">Nutrition values per<input name="basis_quantity" type="number" min="0.000001" step="any" required value="100"><span id="basis-unit" class="muted">grams</span></label>
+  <p class="muted">Leave unknown nutrients blank. Enter 0 only when you know the value is zero.</p>
+  <div class="fields"><label>Calories (kcal)<input name="energy_kcal" type="number" min="0" step="any"></label><label>Protein (g)<input name="protein_g" type="number" min="0" step="any"></label><label>Carbs (g)<input name="carbs_g" type="number" min="0" step="any"></label><label>Fat (g)<input name="fat_g" type="number" min="0" step="any"></label></div></fieldset>
+  <output id="preview" aria-live="polite"></output><p id="entry-error" role="alert" hidden></p><button type="submit" id="save-entry" class="wide">Save food</button>
+</form></dialog>
+<dialog id="goals-dialog" aria-labelledby="goals-title"><form id="goals-form"><div class="dialog-heading"><h2 id="goals-title">Daily targets</h2><button type="button" class="icon secondary" id="goals-close" aria-label="Close targets">×</button></div><p class="muted">Choose your own targets. Leave a field blank to track without a target.</p><div class="fields"><label>Calories (kcal)<input name="energy_kcal" type="number" min="0" step="any"></label><label>Protein (g)<input name="protein_g" type="number" min="0" step="any"></label><label>Carbs (g)<input name="carbs_g" type="number" min="0" step="any"></label><label>Fat (g)<input name="fat_g" type="number" min="0" step="any"></label></div><p id="goals-error" role="alert" hidden></p><button type="submit" id="save-goals" class="wide">Save targets</button></form></dialog>
+<script type="module" src="/src/app.js"></script>
+</body></html>
