@@ -20,9 +20,11 @@ try {
   socket = new WebSocket(tabs[0].webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
   let sequence = 0;
+  const browserErrors = [];
   const requests = new Map();
   socket.onmessage = event => {
     const result = JSON.parse(event.data);
+    if (result.method === 'Runtime.exceptionThrown') browserErrors.push(result.params.exceptionDetails);
     if (requests.has(result.id)) { requests.get(result.id)(result); requests.delete(result.id); }
   };
   async function command(method, params = {}) {
@@ -40,13 +42,16 @@ try {
   }
   async function waitFor(expression) {
     for (let i = 0; i < 100; i++) { if (await evaluate(expression)) return; await pause(50); }
-    throw Error(`Timed out: ${expression}`);
+    const page = await evaluate('({url:location.href,ready:document.readyState,body:document.body?.innerText.slice(0,2500)})');
+    throw Error(`Timed out: ${expression}\nPage: ${JSON.stringify(page)}\nBrowser errors: ${JSON.stringify(browserErrors)}`);
   }
   async function reload() {
     await evaluate('document.documentElement.dataset.reloadPending = "1"');
     await command('Page.reload');
     await waitFor('!document.documentElement.dataset.reloadPending && document.querySelector("#add-open") && !document.querySelector("#add-open").disabled');
   }
+  await command('Runtime.enable');
+  await command('Page.enable');
   await command('Page.addScriptToEvaluateOnNewDocument', { source: `
     const realFetch = window.fetch.bind(window);
     window.__searchQueries = [];
