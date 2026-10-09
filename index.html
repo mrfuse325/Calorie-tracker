@@ -4,8 +4,8 @@
 <body>
 <header class="topbar"><a class="brand" href="/">◒ <span>Daily Plate</span></a><span class="badge">Your personal food diary</span></header>
 <main>
-  <section class="heading"><div><p class="eyebrow">A LITTLE MORE AWARE, EVERY DAY</p><h1>Your daily plate.</h1><p class="muted">Keep track of what fuels you.</p></div><div class="heading-actions"><button id="calculator-open">Calculate targets</button><button id="goals-open" class="secondary">Set targets manually</button></div></section>
-  <section class="daybar" aria-label="Diary date"><div><label for="diary-date">Viewing day</label><input type="date" id="diary-date" required></div><button class="secondary" id="today">Today</button><button id="add-open">+ Add food</button></section>
+  <section class="heading"><div><p class="eyebrow">A LITTLE MORE AWARE, EVERY DAY</p><h1>Your daily plate.</h1><p class="muted">Keep track of what fuels you.</p></div><div class="heading-actions"><button id="calculator-open" disabled>Calculate targets</button><button id="goals-open" class="secondary" disabled>Set targets manually</button></div></section>
+  <section class="daybar" aria-label="Diary date"><div><label for="diary-date">Viewing day</label><input type="date" id="diary-date" required></div><button class="secondary" id="today">Today</button><button id="add-open" disabled>+ Add food</button></section>
   <div id="notice" role="status" aria-live="polite"></div><div id="error" role="alert" hidden></div><button id="retry" class="secondary" hidden>Retry loading diary</button>
   <section id="summary" class="summary" aria-label="Daily nutrition totals"></section>
   <section class="diary"><div class="section-heading"><h2>Food diary</h2><span id="entry-count" class="muted"></span></div><div id="meals"></div></section>

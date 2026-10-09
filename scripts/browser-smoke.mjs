@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 const profile = await mkdtemp(join(tmpdir(), 'calorie-browser-'));
-const chrome = spawn(process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', ['--headless', '--disable-gpu', '--disable-dev-shm-usage', ...(process.env.CHROME_NO_SANDBOX === '1' ? ['--no-sandbox'] : []), '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
+const chrome = spawn(process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', ['--headless', '--disable-gpu', '--disable-dev-shm-usage', '--disable-extensions', '--disable-background-networking', '--disable-default-apps', ...(process.env.CHROME_NO_SANDBOX === '1' ? ['--no-sandbox'] : []), '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
 let chromeError = '', launchError;
 chrome.stderr.on('data', data => { chromeError = (chromeError + data.toString()).slice(-6000); });
 chrome.on('error', error => { launchError = error; });
@@ -12,7 +12,7 @@ let socket;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 try {
   let port;
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 300; i++) {
     try { port = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; } catch { await pause(100); }
   }
   if (!port) throw Error(`Could not launch Chrome. Check CHROME_PATH. ${launchError?.message || chromeError}`);
@@ -43,7 +43,7 @@ try {
     return result.result.value;
   }
   async function waitFor(expression) {
-    for (let i = 0; i < 100; i++) { if (await evaluate(expression)) return; await pause(50); }
+    for (let i = 0; i < 200; i++) { if (await evaluate(expression)) return; await pause(50); }
     const page = await evaluate('({url:location.href,ready:document.readyState,body:document.body?.innerText.slice(0,2500)})');
     throw Error(`Timed out: ${expression}\nPage: ${JSON.stringify(page)}\nBrowser errors: ${JSON.stringify(browserErrors)}`);
   }
