@@ -33,4 +33,9 @@ export const storage = {
   remove: id => transact('entries', 'readwrite', store => store.delete(id)),
   goals: () => transact('preferences', 'readonly', store => store.get('goals')),
   saveGoals: goals => transact('preferences', 'readwrite', store => store.put(goals, 'goals')),
+  calculator: () => transact('preferences', 'readonly', store => store.get('calculator')),
+  saveCalculatedGoals: (goals, profile) => transact('preferences', 'readwrite', store => {
+    store.put(profile, 'calculator');
+    return store.put(goals, 'goals');
+  }),
 };

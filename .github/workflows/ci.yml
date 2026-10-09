@@ -11,3 +11,14 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      - name: Browser smoke (mocked USDA responses)
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+          CHROME_NO_SANDBOX: '1'
+        run: |
+          npm run dev > /tmp/calorie-tracker-server.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:browser
