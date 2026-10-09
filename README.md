@@ -62,7 +62,7 @@ npm run check
 npm test
 ```
 
-With the local server running, `npm run test:browser` exercises diary CRUD/persistence, calculator targets and input restoration, mocked USDA lookup, source snapshots, stale-search rejection, lookup failure, and mobile overflow using a disposable Chrome profile. The default executable is macOS Google Chrome; set `CHROME_PATH` on other systems. CI runs syntax, logic, and Chrome smoke checks. The browser script mocks USDA to avoid requiring a key or spending quotas. Browser and live USDA execution remain unverified in this local sandbox because it rejects server listening and external networking.
+With the local server running, `npm run test:browser` exercises diary CRUD/persistence, calculator targets and input restoration, mocked USDA lookup, source snapshots, stale-search rejection, lookup failure, and mobile overflow using a disposable Chrome profile. The default executable is macOS Google Chrome; set `CHROME_PATH` on other systems. CI runs syntax, logic, and Chrome smoke checks. The browser script mocks USDA to avoid requiring a key or spending quotas. All 22 logic/provider tests and the full browser smoke passed in [GitHub CI](https://github.com/mrfuse325/Calorie-tracker/actions/runs/37866041078). Live USDA access remains unverified here; local execution is blocked by this sandbox's networking restrictions.
 
 Manual QA: log cooked rice with 130 kcal and 2.7 g protein per 100 g, leave carbs blank, and enter 150 g. Expect 195 kcal, 4.1 g displayed protein, and an incomplete carbs total. Edit to 200 g, refresh, set a target, delete, and undo. Check keyboard focus and narrow-screen forms. To check a failed save, disable storage in browser settings and verify that the form stays available and no success appears.
 
@@ -81,4 +81,4 @@ See [the build plan](docs/build-plan.md) for the detailed contract and acceptanc
 
 ## Status
 
-The local tracker, personal goal calculator, and USDA lookup are implemented. Automated logic and syntax checks pass; browser and live-provider verification remain required before release.
+The local tracker, personal goal calculator, and USDA lookup are implemented. Automated logic, syntax, and browser smoke checks pass. Live-provider verification and manual accessibility review remain required before release.
