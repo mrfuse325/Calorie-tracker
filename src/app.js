@@ -1,5 +1,7 @@
 import { nutrients, meals, localDate, makeEntry, numberValue, scale, totals } from './nutrition.js';
 import { storage } from './storage.js';
+import { setupFoodSearch } from './food-search.js';
+import { setupGoalCalculator } from './goals-ui.js';
 const $ = selector => document.querySelector(selector);
 const entryForm = $('#entry-form');
 const dateInput = $('#diary-date');
@@ -59,6 +61,7 @@ function render() {
       const row = element('div', undefined, 'entry');
       const details = element('div');
       details.append(element('h4', entry.food_name), element('p', `${format(entry.quantity)} ${units[entry.unit]}`), element('p', nutrients.map(key => `${names[key]}: ${entry.snapshot[key] === null ? 'not available' : format(entry.snapshot[key]) + (key === 'energy_kcal' ? ' kcal' : ' g')}`).join(' · ')));
+      if (entry.source === 'usda') details.append(element('p', 'USDA food estimate · nutrition saved at logging time'));
       const actions = element('div', undefined, 'entry-actions');
       const edit = element('button', 'Edit', 'secondary');
       const remove = element('button', 'Delete', 'secondary delete');
@@ -71,7 +74,7 @@ function render() {
     }
     return section;
   }));
-  $('#add-open').disabled = $('#goals-open').disabled = !ready || busy;
+  $('#add-open').disabled = $('#goals-open').disabled = $('#calculator-open').disabled = !ready || busy;
 }
 function openEntry(entry = null, meal = 'breakfast') {
   editing = entry;
@@ -83,6 +86,7 @@ function openEntry(entry = null, meal = 'breakfast') {
     const field = entryForm.elements.namedItem(key);
     if (field) field.value = value ?? '';
   }
+  foodSearch.reset(entry);
   preview(); $('#entry-dialog').showModal();
   entryForm.elements.food_name.focus();
 }
@@ -95,13 +99,16 @@ function preview() {
   } catch { $('#preview').textContent = 'Enter a valid amount and nutrition basis to preview.'; }
 }
 entryForm.addEventListener('input', preview);
+const foodSearch = setupFoodSearch({ form: entryForm, preview, isBusy: () => busy });
+$('#entry-dialog').addEventListener('close', () => foodSearch.cancel());
+setupGoalCalculator({ isBusy: () => busy, setBusy: value => { busy = value; render(); }, saved: next => { goals = next; notice('Calculated daily targets saved. You can adjust them with Set targets manually.'); render(); } });
 entryForm.addEventListener('submit', async event => {
   event.preventDefault(); if (busy) return;
   message('#entry-error', '');
   let entry;
-  try { entry = makeEntry(Object.fromEntries(new FormData(entryForm)), editing); }
+  try { entry = makeEntry({ ...Object.fromEntries(new FormData(entryForm)), reference: foodSearch.reference() }, editing); }
   catch (error) { message('#entry-error', error.message); return; }
-  busy = true; $('#save-entry').disabled = true;
+  busy = true; $('#save-entry').disabled = true; foodSearch.cancel();
   try {
     await storage.save(entry);
     entries = [...entries.filter(item => item.id !== entry.id), entry];
@@ -163,5 +170,5 @@ async function load() {
 }
 $('#retry').onclick = load;
 // Refresh after edits made in another tab; each entry is stored independently.
-window.addEventListener('focus', () => { if (!busy && !$('#entry-dialog').open && !$('#goals-dialog').open) load(); });
+window.addEventListener('focus', () => { if (!busy && !document.querySelector('dialog[open]')) load(); });
 load();

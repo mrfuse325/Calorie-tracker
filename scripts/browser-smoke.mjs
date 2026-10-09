@@ -39,6 +39,23 @@ try {
     for (let i = 0; i < 100; i++) { if (await evaluate(expression)) return; await pause(50); }
     throw Error(`Timed out: ${expression}`);
   }
+  async function reload() {
+    await evaluate('document.documentElement.dataset.reloadPending = "1"');
+    await command('Page.reload');
+    await waitFor('!document.documentElement.dataset.reloadPending && document.querySelector("#add-open") && !document.querySelector("#add-open").disabled');
+  }
+  await command('Page.addScriptToEvaluateOnNewDocument', { source: `
+    const realFetch = window.fetch.bind(window);
+    window.__searchQueries = [];
+    window.fetch = async (url, options) => {
+      if (!String(url).startsWith('/api/foods/search')) return realFetch(url, options);
+      const query = new URL(url, location.origin).searchParams.get('q');
+      window.__searchQueries.push(query);
+      if (query === 'slow') await new Promise(resolve => setTimeout(resolve, 1200));
+      if (query === 'offline') return new Response(JSON.stringify({error:'Food search unavailable. Enter nutrition manually.'}), {status:502});
+      return new Response(JSON.stringify({mode:'demo', foods:[{source:'usda', source_id:'168878', food_name:query === 'slow' ? 'Old search result' : 'Rice, white, cooked', data_type:'SR Legacy', basis_quantity:100, basis_unit:'g', basis:{energy_kcal:130,protein_g:2.69,carbs_g:28.17,fat_g:0.28}, fetched_at:'2026-10-08T00:00:00Z', provider_url:'https://fdc.nal.usda.gov/food-details/168878/nutrients'}]}));
+    };
+  ` });
   await command('Page.navigate', { url: 'http://127.0.0.1:5173' });
   await waitFor('document.querySelector("#add-open") && !document.querySelector("#add-open").disabled');
   await evaluate(`document.querySelector('#add-open').click(); const form = document.querySelector('#entry-form'); for (const [key,value] of Object.entries({food_name:'Cooked rice',quantity:150,basis_quantity:100,energy_kcal:130,protein_g:2.7,fat_g:0})) form.elements[key].value = value; form.requestSubmit();`);
@@ -51,7 +68,7 @@ try {
   await evaluate(`document.querySelector('#goals-open').click(); document.querySelector('#goals-form').elements.energy_kcal.value = 200; document.querySelector('#goals-form').requestSubmit();`);
   await waitFor('!document.querySelector("#goals-dialog").open');
   assert.match(await evaluate('document.querySelector("#summary").textContent'), /60 over target/);
-  await command('Page.reload');
+  await reload();
   await waitFor('document.querySelector("#entry-count")?.textContent === "1 entry"');
   assert.match(await evaluate('document.querySelector("#summary").textContent'), /260 kcal/);
   assert.match(await evaluate('document.querySelector("#summary").textContent'), /60 over target/);
@@ -61,14 +78,44 @@ try {
   await waitFor('document.querySelector("#entry-count").textContent === "1 entry"');
   await evaluate(`document.querySelector('[aria-label="Delete Cooked rice"]').click()`);
   await waitFor('document.querySelector("#entry-count").textContent === "0 entries"');
-  await command('Page.reload');
+  await reload();
   await waitFor('document.querySelector("#add-open") && !document.querySelector("#add-open").disabled');
   assert.equal(await evaluate('document.querySelector("#entry-count").textContent'), '0 entries');
+  await evaluate(`document.querySelector('#calculator-open').click()`);
+  await waitFor('document.querySelector("#calculator-dialog").open && !document.querySelector("#calculator-form").elements.age.disabled');
+  await evaluate(`const calc = document.querySelector('#calculator-form'); for (const [key,value] of Object.entries({age:30,sex:'male',height_cm:180,weight_kg:80,activity:'sedentary'})) calc.elements[key].value=value; calc.requestSubmit();`);
+  await waitFor('!document.querySelector("#calculator-result").hidden');
+  assert.match(await evaluate('document.querySelector("#calculator-result").textContent'), /2,136 kcal/);
+  await evaluate(`document.querySelector('#calculator-apply').click()`);
+  await waitFor('!document.querySelector("#calculator-dialog").open');
+  await reload();
+  assert.match(await evaluate('document.querySelector("#summary").textContent'), /Target: 2,136 kcal/);
+  await evaluate(`document.querySelector('#calculator-open').click()`);
+  await waitFor('!document.querySelector("#calculator-form").elements.age.disabled');
+  assert.equal(await evaluate('document.querySelector("#calculator-form").elements.weight_kg.value'), '80');
+  await evaluate(`document.querySelector('#calculator-close').click(); document.querySelector('#add-open').click(); const foodName = document.querySelector('#entry-form').elements.food_name; foodName.value='rice'; foodName.dispatchEvent(new Event('input', {bubbles:true}));`);
+  await waitFor('document.querySelector("#food-results button") !== null');
+  await evaluate(`document.querySelector('#food-results button').click()`);
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.energy_kcal.value'), '130');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.unit.value'), 'g');
+  await evaluate(`document.querySelector('#entry-form').elements.quantity.value = 150; document.querySelector('#entry-form').requestSubmit();`);
+  await waitFor('!document.querySelector("#entry-dialog").open');
+  assert.match(await evaluate('document.querySelector("#summary").textContent'), /195 kcal/);
+  assert.match(await evaluate('document.querySelector("#meals").textContent'), /USDA food estimate/);
+  await reload();
+  assert.match(await evaluate('document.querySelector("#meals").textContent'), /USDA food estimate/);
+  await evaluate(`document.querySelector('#add-open').click(); document.querySelector('#entry-form').elements.food_name.value='slow'; document.querySelector('#food-search').click(); document.querySelector('#entry-form').elements.food_name.value='rice'; document.querySelector('#food-search').click();`);
+  await waitFor('document.querySelector("#food-results button") !== null');
+  await pause(1300);
+  assert.doesNotMatch(await evaluate('document.querySelector("#food-results").textContent'), /Old search result/);
+  await evaluate(`document.querySelector('#entry-form').elements.food_name.value='offline'; document.querySelector('#food-search').click();`);
+  await waitFor('document.querySelector("#search-status").textContent.includes("unavailable")');
+  await evaluate(`document.querySelector('#food-manual').click(); document.querySelector('#entry-close').click()`);
   await command('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
   await evaluate(`document.querySelector('#add-open').click()`);
   assert.equal(await evaluate('document.querySelector("#entry-dialog").scrollWidth <= document.querySelector("#entry-dialog").clientWidth'), true);
-  console.log('Browser smoke passed: add, scale, incomplete totals, edit, targets, refresh, delete, undo, persistence, mobile overflow.');
+  console.log('Browser smoke passed: diary CRUD, persistence, targets, calculator, profile restore, mocked USDA lookup, source snapshots, stale searches, search failure, mobile overflow.');
 } finally {
   socket?.close();
   chrome.kill();

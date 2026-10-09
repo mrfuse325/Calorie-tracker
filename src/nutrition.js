@@ -36,7 +36,9 @@ export function makeEntry(values, previous = null) {
   if (nutrients.every(key => basis[key] === null)) throw Error('Enter at least one nutrition value. Leave unknown values blank.');
   const snapshot = scale(basis, quantity, basis_quantity);
   const now = new Date().toISOString();
-  return { id: previous?.id || crypto.randomUUID(), food_name, diary_date: values.diary_date, meal: values.meal, quantity, unit: values.unit, basis_quantity, basis_unit: values.unit, basis, snapshot, source: 'manual', created_at: previous?.created_at || now, updated_at: now };
+  const reference = Object.hasOwn(values, 'reference') ? values.reference : previous;
+  const matchesReference = reference?.source === 'usda' && reference.food_name === food_name && reference.basis_unit === values.unit && reference.basis_quantity === basis_quantity && nutrients.every(key => reference.basis?.[key] === basis[key]);
+  return { id: previous?.id || crypto.randomUUID(), food_name, diary_date: values.diary_date, meal: values.meal, quantity, unit: values.unit, basis_quantity, basis_unit: values.unit, basis, snapshot, source: matchesReference ? 'usda' : 'manual', ...(matchesReference ? { source_id: reference.source_id, fetched_at: reference.fetched_at, provider_url: reference.provider_url } : {}), created_at: previous?.created_at || now, updated_at: now };
 }
 export function totals(entries) {
   return Object.fromEntries(nutrients.map(key => [key, entries.reduce((total, entry) => {
