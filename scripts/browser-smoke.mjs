@@ -17,7 +17,9 @@ try {
   }
   if (!port) throw Error(`Could not launch Chrome. Check CHROME_PATH. ${launchError?.message || chromeError}`);
   const tabs = await fetch(`http://127.0.0.1:${port}/json/list`).then(res => res.json());
-  socket = new WebSocket(tabs[0].webSocketDebuggerUrl);
+  const tab = tabs.find(item => item.type === 'page' && item.url === 'about:blank') || tabs.find(item => item.type === 'page');
+  if (!tab) throw Error('Chrome did not create a test page.');
+  socket = new WebSocket(tab.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
   let sequence = 0;
   const browserErrors = [];
