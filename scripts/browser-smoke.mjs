@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 const profile = await mkdtemp(join(tmpdir(), 'calorie-browser-'));
-const chrome = spawn(process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', ['--headless', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn(process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', ['--headless', '--disable-gpu', '--disable-dev-shm-usage', ...(process.env.CHROME_NO_SANDBOX === '1' ? ['--no-sandbox'] : []), '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
+let chromeError = '', launchError;
+chrome.stderr.on('data', data => { chromeError = (chromeError + data.toString()).slice(-6000); });
+chrome.on('error', error => { launchError = error; });
 let socket;
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 try {
@@ -12,7 +15,7 @@ try {
   for (let i = 0; i < 100; i++) {
     try { port = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0]; break; } catch { await pause(100); }
   }
-  if (!port) throw Error('Could not launch Chrome. Set CHROME_PATH to your Chrome executable.');
+  if (!port) throw Error(`Could not launch Chrome. Check CHROME_PATH. ${launchError?.message || chromeError}`);
   const tabs = await fetch(`http://127.0.0.1:${port}/json/list`).then(res => res.json());
   socket = new WebSocket(tabs[0].webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
@@ -117,8 +120,14 @@ try {
   assert.equal(await evaluate('document.querySelector("#entry-dialog").scrollWidth <= document.querySelector("#entry-dialog").clientWidth'), true);
   console.log('Browser smoke passed: diary CRUD, persistence, targets, calculator, profile restore, mocked USDA lookup, source snapshots, stale searches, search failure, mobile overflow.');
 } finally {
+  if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ id: 999999, method: 'Browser.close' }));
   socket?.close();
-  chrome.kill();
-  await pause(500);
-  await rm(profile, { recursive: true, force: true });
+  if (chrome.exitCode === null && chrome.signalCode === null) {
+    const stopped = new Promise(resolve => chrome.once('exit', resolve));
+    chrome.kill();
+    await Promise.race([stopped, pause(2000)]);
+    if (chrome.exitCode === null && chrome.signalCode === null) { chrome.kill('SIGKILL'); await Promise.race([stopped, pause(1000)]); }
+  }
+  try { await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+  catch (error) { console.error(`Could not remove temporary Chrome profile: ${error.message}`); }
 }
