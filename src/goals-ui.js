@@ -29,6 +29,14 @@ export function setupGoalCalculator({ isBusy, setBusy, saved }) {
       if (previous) for (const [key, value] of Object.entries(previous)) {
         const field = form.elements.namedItem(key); if (field) field.value = value;
       }
+      // Older profiles used metric inputs; display their equivalents in US units.
+      if (previous?.measurement === 'metric') {
+        const totalInches = Math.round(Number(previous.height_cm) / 2.54 * 100) / 100;
+        form.elements.feet.value = Math.floor(totalInches / 12);
+        form.elements.inches.value = Math.round((totalInches % 12) * 100) / 100;
+        form.elements.pounds.value = Math.round(Number(previous.weight_kg) / 0.45359237 * 100) / 100;
+      }
+      form.elements.measurement.value = 'us';
       units(); form.elements.age.focus();
     } catch { error('Could not load saved calculator inputs. You can still enter new values.'); }
     finally {
@@ -46,22 +54,36 @@ export function setupGoalCalculator({ isBusy, setBusy, saved }) {
       result.replaceChildren();
       const heading = document.createElement('h3'); heading.textContent = 'Your daily estimate'; result.append(heading);
       const list = document.createElement('dl'); list.className = 'estimate-grid';
-      for (const [label, value] of [['Maintenance calories', `${format(estimate.goals.energy_kcal)} kcal`], ['Protein target', `${format(estimate.goals.protein_g)} g`], ['Carbs target', `${format(estimate.goals.carbs_g)} g`], ['Fat target', `${format(estimate.goals.fat_g)} g`]]) {
+      for (const [label, value] of [['Daily calorie target', estimate.goals.energy_kcal > 0 ? `${format(estimate.goals.energy_kcal)} kcal` : 'Unavailable'], ['Protein target', estimate.goals.energy_kcal > 0 ? `${format(estimate.goals.protein_g)} g` : 'Unavailable'], ['Carbs target', estimate.goals.energy_kcal > 0 ? `${format(estimate.goals.carbs_g)} g` : 'Unavailable'], ['Fat target', estimate.goals.energy_kcal > 0 ? `${format(estimate.goals.fat_g)} g` : 'Unavailable']]) {
         const group = document.createElement('div'), term = document.createElement('dt'), definition = document.createElement('dd');
         term.textContent = label; definition.textContent = value; group.append(term, definition); list.append(group);
       }
       result.append(list);
+      const table = document.createElement('table'); table.className = 'loss-options';
+      const caption = document.createElement('caption'); caption.textContent = 'Daily calorie estimates by weekly goal'; table.append(caption);
+      const head = document.createElement('thead'), headRow = document.createElement('tr');
+      for (const title of ['Weekly goal', 'Calories/day', 'Availability']) { const th = document.createElement('th'); th.scope = 'col'; th.textContent = title; headRow.append(th); }
+      head.append(headRow); table.append(head);
+      const body = document.createElement('tbody');
+      for (const option of estimate.options) {
+        const row = document.createElement('tr');
+        for (const value of [option.loss_rate === 0 ? 'Maintain weight' : `Lose ${option.loss_rate} lb/week`, option.calories > 0 ? format(option.calories) : 'Unavailable', option.eligible ? option.loss_rate === estimate.loss_rate ? 'Selected' : 'Available' : 'Needs review']) { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }
+        body.append(row);
+      }
+      table.append(body); result.append(table);
       for (const text of [
-        `Resting energy estimate: ${format(estimate.resting)} kcal × activity factor ${estimate.activity_factor}.`,
+        `Maintenance estimate: ${format(estimate.maintenance_kcal)} kcal/day. Selected weekly goal: ${estimate.loss_rate === 0 ? 'maintain weight' : 'lose ' + estimate.loss_rate + ' lb/week'}; estimated deficit: ${format(estimate.daily_deficit)} kcal/day.`,
         `Protein reference (0.8 g/kg): ${format(estimate.protein_reference_g)} g/day. Your target above follows the chosen ${estimate.split.protein}% calorie split.`,
         `Adult calorie-based ranges: protein ${estimate.ranges.protein_g.map(format).join('–')} g; carbs ${estimate.ranges.carbs_g.map(format).join('–')} g; fat ${estimate.ranges.fat_g.map(format).join('–')} g. These ranges are separate references, not a combined meal plan.`,
         ...(estimate.goals.protein_g < estimate.protein_reference_g ? ['Your chosen protein split is below the weight-based reference. Increase protein within the allowed ranges or review manual targets with a qualified professional.'] : []),
       ]) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = text; result.append(p); }
       result.hidden = false; $('#calculator-apply').hidden = false;
+      $('#calculator-apply').disabled = !estimate.can_apply;
+      if (!estimate.can_apply) error(estimate.restriction);
     } catch (reason) { error(reason.message); }
   };
   $('#calculator-apply').onclick = async () => {
-    if (!estimate || !profile || isBusy()) return;
+    if (!estimate || !estimate.can_apply || !profile || isBusy()) return;
     const next = estimate.goals, inputs = profile;
     setBusy(true); $('#calculator-apply').disabled = true;
     try { await storage.saveCalculatedGoals(next, inputs); dialog.close(); saved(next); }

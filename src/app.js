@@ -60,7 +60,7 @@ function render() {
     for (const entry of foods) {
       const row = element('div', undefined, 'entry');
       const details = element('div');
-      details.append(element('h4', entry.food_name), element('p', `${format(entry.quantity)} ${units[entry.unit]}`), element('p', nutrients.map(key => `${names[key]}: ${entry.snapshot[key] === null ? 'not available' : format(entry.snapshot[key]) + (key === 'energy_kcal' ? ' kcal' : ' g')}`).join(' · ')));
+      details.append(element('h4', entry.food_name), element('p', `${format(entry.quantity)} ${units[entry.unit]}${entry.unit === 'serving' ? ' · ' + (entry.serving_label || '1 serving') + (entry.serving_grams ? ' (' + format(entry.serving_grams) + ' g each)' : '') : ''}`), element('p', nutrients.map(key => `${names[key]}: ${entry.snapshot[key] === null ? 'not available' : format(entry.snapshot[key]) + (key === 'energy_kcal' ? ' kcal' : ' g')}`).join(' · ')));
       if (entry.source === 'usda') details.append(element('p', 'USDA food estimate · nutrition saved at logging time'));
       const actions = element('div', undefined, 'entry-actions');
       const edit = element('button', 'Edit', 'secondary');

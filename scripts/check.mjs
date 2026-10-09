@@ -6,7 +6,7 @@ async function files(directory) {
   const lists = await Promise.all(items.map(item => item.isDirectory() ? files(`${directory}/${item.name}`) : [`${directory}/${item.name}`]));
   return lists.flat();
 }
-const paths = ['server.mjs', 'food-api.mjs', ...await files('src'), ...await files('scripts'), ...await files('tests')].filter(path => /\.(mjs|js)$/.test(path));
+const paths = ['server.mjs', 'food-api.mjs', 'worker.mjs', ...await files('src'), ...await files('scripts'), ...await files('tests')].filter(path => /\.(mjs|js)$/.test(path));
 for (const path of paths) {
   const result = spawnSync(process.execPath, ['--check', path], { stdio: 'inherit' });
   if (result.status !== 0) process.exit(result.status || 1);

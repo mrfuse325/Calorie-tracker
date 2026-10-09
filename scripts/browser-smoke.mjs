@@ -58,6 +58,7 @@ try {
     const realFetch = window.fetch.bind(window);
     window.__searchQueries = [];
     window.fetch = async (url, options) => {
+      if (String(url).startsWith('/api/foods/usda/')) return new Response(JSON.stringify({food:{source:'usda',source_id:'168878',food_name:'Rice, white, cooked',data_type:'SR Legacy',basis_quantity:100,basis_unit:'g',basis:{energy_kcal:130,protein_g:2.69,carbs_g:28.17,fat_g:0.28},portions:[{id:'cup',label:'1 cup',grams:158}],fetched_at:'2026-10-08T00:00:00Z',provider_url:'https://fdc.nal.usda.gov/food-details/168878/nutrients'}}));
       if (!String(url).startsWith('/api/foods/search')) return realFetch(url, options);
       const query = new URL(url, location.origin).searchParams.get('q');
       window.__searchQueries.push(query);
@@ -68,7 +69,7 @@ try {
   ` });
   await command('Page.navigate', { url: 'http://127.0.0.1:5173' });
   await waitFor('document.querySelector("#add-open") && !document.querySelector("#add-open").disabled');
-  await evaluate(`document.querySelector('#add-open').click(); const form = document.querySelector('#entry-form'); for (const [key,value] of Object.entries({food_name:'Cooked rice',quantity:150,basis_quantity:100,energy_kcal:130,protein_g:2.7,fat_g:0})) form.elements[key].value = value; form.requestSubmit();`);
+  await evaluate(`document.querySelector('#add-open').click(); const form = document.querySelector('#entry-form'); for (const [key,value] of Object.entries({food_name:'Cooked rice',unit:'g',quantity:150,basis_quantity:100,energy_kcal:130,protein_g:2.7,fat_g:0})) form.elements[key].value = value; form.requestSubmit();`);
   await waitFor('!document.querySelector("#entry-dialog").open && document.querySelector("#entry-count").textContent === "1 entry"');
   assert.match(await evaluate('document.querySelector("#summary").textContent'), /195 kcal/);
   assert.match(await evaluate('document.querySelector("#summary").textContent'), /1 entry missing carbs/);
@@ -93,24 +94,28 @@ try {
   assert.equal(await evaluate('document.querySelector("#entry-count").textContent'), '0 entries');
   await evaluate(`document.querySelector('#calculator-open').click()`);
   await waitFor('document.querySelector("#calculator-dialog").open && !document.querySelector("#calculator-form").elements.age.disabled');
-  await evaluate(`const calc = document.querySelector('#calculator-form'); for (const [key,value] of Object.entries({age:30,sex:'male',height_cm:180,weight_kg:80,activity:'sedentary'})) calc.elements[key].value=value; calc.requestSubmit();`);
+  assert.equal(await evaluate('document.querySelector("#calculator-form").elements.measurement.value'), 'us');
+  await evaluate(`const calc = document.querySelector('#calculator-form'); for (const [key,value] of Object.entries({age:30,sex:'male',feet:5,inches:180/2.54-60,pounds:80/0.45359237,activity:'sedentary',loss_rate:1})) calc.elements[key].value=value; calc.requestSubmit();`);
   await waitFor('!document.querySelector("#calculator-result").hidden');
-  assert.match(await evaluate('document.querySelector("#calculator-result").textContent'), /2,136 kcal/);
+  assert.match(await evaluate('document.querySelector("#calculator-result").textContent'), /1,636 kcal/);
   await evaluate(`document.querySelector('#calculator-apply').click()`);
   await waitFor('!document.querySelector("#calculator-dialog").open');
   await reload();
-  assert.match(await evaluate('document.querySelector("#summary").textContent'), /Target: 2,136 kcal/);
+  assert.match(await evaluate('document.querySelector("#summary").textContent'), /Target: 1,636 kcal/);
   await evaluate(`document.querySelector('#calculator-open').click()`);
   await waitFor('!document.querySelector("#calculator-form").elements.age.disabled');
-  assert.equal(await evaluate('document.querySelector("#calculator-form").elements.weight_kg.value'), '80');
+  assert.equal(await evaluate('document.querySelector("#calculator-form").elements.loss_rate.value'), '1');
   await evaluate(`document.querySelector('#calculator-close').click(); document.querySelector('#add-open').click(); const foodName = document.querySelector('#entry-form').elements.food_name; foodName.value='rice'; foodName.dispatchEvent(new Event('input', {bubbles:true}));`);
   await waitFor('document.querySelector("#food-results button") !== null');
   await evaluate(`document.querySelector('#food-results button').click()`);
-  assert.equal(await evaluate('document.querySelector("#entry-form").elements.energy_kcal.value'), '130');
-  assert.equal(await evaluate('document.querySelector("#entry-form").elements.unit.value'), 'g');
-  await evaluate(`document.querySelector('#entry-form').elements.quantity.value = 150; document.querySelector('#entry-form').requestSubmit();`);
+  await waitFor('document.querySelector("#entry-form").elements.energy_kcal.value !== "" && !document.querySelector("#portion-fields").hidden');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.energy_kcal.value'), '205.4');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.unit.value'), 'serving');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.basis_quantity.value'), '1');
+  await evaluate(`document.querySelector('#entry-form').elements.quantity.value = 1.5; document.querySelector('#entry-form').requestSubmit();`);
   await waitFor('!document.querySelector("#entry-dialog").open');
-  assert.match(await evaluate('document.querySelector("#summary").textContent'), /195 kcal/);
+  assert.match(await evaluate('document.querySelector("#summary").textContent'), /308.1 kcal/);
+  assert.match(await evaluate('document.querySelector("#meals").textContent'), /1 cup/);
   assert.match(await evaluate('document.querySelector("#meals").textContent'), /USDA food estimate/);
   await reload();
   assert.match(await evaluate('document.querySelector("#meals").textContent'), /USDA food estimate/);
@@ -125,7 +130,7 @@ try {
   assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
   await evaluate(`document.querySelector('#add-open').click()`);
   assert.equal(await evaluate('document.querySelector("#entry-dialog").scrollWidth <= document.querySelector("#entry-dialog").clientWidth'), true);
-  console.log('Browser smoke passed: diary CRUD, persistence, targets, calculator, profile restore, mocked USDA lookup, source snapshots, stale searches, search failure, mobile overflow.');
+  console.log('Browser smoke passed: diary CRUD, weight-loss goals, US-unit profile restore, USDA portions, serving scaling, source snapshots, stale searches, search failure, mobile overflow.');
 } finally {
   if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ id: 999999, method: 'Browser.close' }));
   socket?.close();

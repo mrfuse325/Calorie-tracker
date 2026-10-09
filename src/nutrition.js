@@ -38,7 +38,8 @@ export function makeEntry(values, previous = null) {
   const now = new Date().toISOString();
   const reference = Object.hasOwn(values, 'reference') ? values.reference : previous;
   const matchesReference = reference?.source === 'usda' && reference.food_name === food_name && reference.basis_unit === values.unit && reference.basis_quantity === basis_quantity && nutrients.every(key => reference.basis?.[key] === basis[key]);
-  return { id: previous?.id || crypto.randomUUID(), food_name, diary_date: values.diary_date, meal: values.meal, quantity, unit: values.unit, basis_quantity, basis_unit: values.unit, basis, snapshot, source: matchesReference ? 'usda' : 'manual', ...(matchesReference ? { source_id: reference.source_id, fetched_at: reference.fetched_at, provider_url: reference.provider_url } : {}), created_at: previous?.created_at || now, updated_at: now };
+  const portion = values.unit === 'serving' ? { serving_label: String(values.serving_label || reference?.serving_label || '1 serving').trim().slice(0, 100) } : {};
+  return { id: previous?.id || crypto.randomUUID(), food_name, diary_date: values.diary_date, meal: values.meal, quantity, unit: values.unit, basis_quantity, basis_unit: values.unit, basis, snapshot, ...portion, source: matchesReference ? 'usda' : 'manual', ...(matchesReference ? { source_id: reference.source_id, fetched_at: reference.fetched_at, provider_url: reference.provider_url, ...(reference.serving_grams ? { serving_grams: reference.serving_grams } : {}) } : {}), created_at: previous?.created_at || now, updated_at: now };
 }
 export function totals(entries) {
   return Object.fromEntries(nutrients.map(key => [key, entries.reduce((total, entry) => {

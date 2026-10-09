@@ -101,3 +101,22 @@ test('selected food snapshots provenance; edits scale original basis; overrides 
   assert.equal(makeEntry({ ...values, reference: null }, entry).source, 'manual');
   assert.equal(makeEntry({ ...values, food_name: 'Other food' }).source, 'manual');
 });
+test('details normalize nested nutrient records and provider portions, and cache by food ID', async () => {
+  let calls = 0;
+  const search = createFoodSearch({ fetchImpl: async url => {
+    calls++; assert.equal(url.pathname, '/fdc/v1/food/168878');
+    return new Response(JSON.stringify({ ...rice, foodNutrients: [{ nutrient: { id: 1008, unitName: 'kcal' }, amount: 130 }], foodPortions: [{ id: 1, amount: 1, modifier: 'cup', gramWeight: 158 }] }));
+  } });
+  const result = await search.details('168878');
+  assert.equal(result.food.basis.energy_kcal, 130);
+  assert.deepEqual(result.food.portions, [{ id: '1', label: '1 cup', grams: 158 }]);
+  assert.equal((await search.details('168878')).cached, true); assert.equal(calls, 1);
+  for (const id of ['../secret', '0', '-1', 'https://example.com']) await assert.rejects(search.details(id), error => error.status === 400);
+});
+test('searches and detail requests share the same upstream quota', async () => {
+  let calls = 0;
+  const search = createFoodSearch({ fetchImpl: async () => { calls++; return response(); } });
+  for (let i = 0; i < 25; i++) await search(`food ${i}`);
+  await assert.rejects(search.details('168878'), error => error.status === 429);
+  assert.equal(calls, 25);
+});

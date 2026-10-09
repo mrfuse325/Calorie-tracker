@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "calorie-tracker",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-08",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "NUTRITION_PROXY", "class_name": "NutritionProxy" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["NutritionProxy"] }]
+}
