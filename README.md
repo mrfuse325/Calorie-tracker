@@ -81,7 +81,7 @@ See [the build plan](docs/build-plan.md) for the detailed contract and acceptanc
 
 ## Status
 
-The local tracker, weight-loss goal calculator, and serving-based USDA lookup are implemented. Automated logic, syntax, and browser smoke checks pass. Live-provider verification and manual accessibility review remain required before release.
+The local tracker, weight-loss goal calculator, and serving-based USDA lookup are implemented. All 35 logic/provider/hosting tests, syntax checks, static build, Cloudflare bundle dry-run, and the updated browser smoke passed in [GitHub CI](https://github.com/mrfuse325/Calorie-tracker/actions/runs/37869488361). Live-provider verification, actual hosting deployment, and manual accessibility review remain required before release.
 
 ## Open on your phone
 

@@ -24,4 +24,4 @@ Each hostname/device/browser has a separate diary. Mac localhost entries do not 
 
 ## Deployment status
 
-Hosting code and instructions are prepared. No Cloudflare account is connected in this session, so there is no live phone URL yet. Repository publishing and CI verification do not deploy this app.
+Hosting code and instructions are prepared. The Cloudflare Worker bundle dry-run and browser journey passed in [GitHub CI](https://github.com/mrfuse325/Calorie-tracker/actions/runs/37869488361). No Cloudflare account is connected in this session, so there is no live phone URL yet. Repository publishing and CI verification do not deploy this app.
