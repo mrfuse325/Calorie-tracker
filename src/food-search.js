@@ -1,4 +1,4 @@
-import { servingReference, gramReference } from './portions.js';
+import { servingReference, gramReference, defaultPortion, availablePortions } from './portions.js';
 
 export function setupFoodSearch({ form, preview, isBusy }) {
   const $ = selector => document.querySelector(selector);
@@ -14,7 +14,7 @@ export function setupFoodSearch({ form, preview, isBusy }) {
     gramsInput.required = Boolean(selected) && form.elements.unit.value === 'serving';
     gramsInput.disabled = !selected || form.elements.unit.value !== 'serving';
     if (!selected) return;
-    source.append(document.createTextNode('USDA estimate. One serving means the portion you select or define below. '));
+    source.append(document.createTextNode('USDA estimate. The selected portion is one serving. Change the portion or number of servings eaten below. '));
     const link = document.createElement('a'); link.textContent = 'View source'; link.href = selected.provider_url;
     link.target = '_blank'; link.rel = 'noopener noreferrer'; source.append(link);
   }
@@ -37,6 +37,7 @@ export function setupFoodSearch({ form, preview, isBusy }) {
     }
   }
   function setPortions(food, savedEntry = null) {
+    food.portions = availablePortions(food);
     portionSelect.replaceChildren();
     for (const portion of food.portions || []) {
       const option = document.createElement('option'); option.value = portion.id;
@@ -47,8 +48,9 @@ export function setupFoodSearch({ form, preview, isBusy }) {
       portionSelect.value = 'custom'; gramsInput.value = savedEntry.serving_grams;
       form.elements.serving_label.value = savedEntry.serving_label || '1 serving';
     } else if (food.portions?.length) {
-      portionSelect.value = food.portions[0].id; gramsInput.value = food.portions[0].grams;
-      form.elements.serving_label.value = food.portions[0].label;
+      const portion = defaultPortion(food.portions);
+      portionSelect.value = portion.id; gramsInput.value = portion.grams;
+      form.elements.serving_label.value = portion.label;
     } else {
       portionSelect.value = 'custom'; gramsInput.value = ''; form.elements.serving_label.value = '1 serving';
     }
@@ -71,7 +73,7 @@ export function setupFoodSearch({ form, preview, isBusy }) {
     selected = resolved;
     name.value = resolved.food_name; form.elements.unit.value = 'serving'; form.elements.quantity.value = '1';
     setPortions(resolved); updatePortion();
-    status.textContent = resolved.portions?.length ? 'One serving is selected. Adjust the number eaten and review calories per serving.' : `${detailsFailed ? 'Serving details could not be loaded. ' : 'This food has no published serving size. '}Enter the grams in your serving, or choose grams as the unit. No serving weight is assumed.`;
+    status.textContent = resolved.portions?.length ? (resolved.portions.some(portion => portion.estimated) ? 'An estimated standard portion is selected because no food-specific serving was available. Change it to match what you ate.' : 'One food-specific serving is selected. Change the portion or number of servings eaten.') : `${detailsFailed ? 'Serving details could not be loaded. ' : 'This food has no published or recognized standard serving size. '}Enter the grams in your serving, or choose grams as the unit.`;
     form.elements.quantity.focus();
   }
   async function search() {
@@ -98,8 +100,11 @@ export function setupFoodSearch({ form, preview, isBusy }) {
   }
   portionSelect.onchange = () => {
     const portion = selected?.portions?.find(item => item.id === portionSelect.value);
-    gramsInput.value = portion?.grams ?? '';
-    form.elements.serving_label.value = portion?.label || '1 serving'; updatePortion();
+    if (portion) {
+      gramsInput.value = portion.grams;
+      form.elements.serving_label.value = portion.label;
+    }
+    updatePortion();
   };
   gramsInput.oninput = () => { portionSelect.value = 'custom'; updatePortion(); };
   form.elements.serving_label.addEventListener('input', updatePortion);

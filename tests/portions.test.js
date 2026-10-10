@@ -1,9 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeFood, normalizePortions } from '../src/usda.js';
-import { servingReference, gramReference } from '../src/portions.js';
+import { servingReference, gramReference, defaultPortion, suggestedPortion, availablePortions } from '../src/portions.js';
 import { makeEntry } from '../src/nutrition.js';
 const food = { source: 'usda', source_id: '123', food_name: 'Rice, cooked', basis_quantity: 100, basis_unit: 'g', basis: { energy_kcal: 130, protein_g: 2.7, carbs_g: 28, fat_g: null }, portions: [{ id: 'cup', label: '1 cup', grams: 158 }] };
+test('default serving prefers a whole household portion over weight references and fractions', () => {
+  const portions = [{ id: 'weight', label: '100 g', grams: 100 }, { id: 'half', label: '0.5 cup', grams: 79 }, ...food.portions];
+  assert.equal(defaultPortion(portions).id, 'cup');
+  assert.equal(defaultPortion(portions.slice(0, 2)).id, 'half');
+  assert.equal(defaultPortion(portions.slice(0, 1)).id, 'weight');
+  assert.equal(defaultPortion([]), null);
+});
+test('missing serving data uses food-specific estimates rather than one gram', () => {
+  for (const [name, grams] of [['Rice, cooked', 80], ['Salmon, cooked', 84], ['Chicken, roasted', 80], ['Beef, cooked', 65], ['Broccoli, raw', 75], ['Apples, raw', 150]]) {
+    const portion = availablePortions({ food_name: name, portions: [{ id: 'g', label: '1 g', grams: 1 }] })[0];
+    assert.equal(portion.grams, grams); assert.equal(portion.estimated, true);
+  }
+  assert.equal(servingReference(food, suggestedPortion('Rice, cooked').grams).basis.energy_kcal, 104);
+  assert.equal(availablePortions(food)[0].grams, 158);
+  for (const name of ['Rice, uncooked', 'Apple juice', 'Bananas, dried', 'Chicken soup', 'Lasagna', 'Snack mix', 'Chicken, raw']) assert.equal(suggestedPortion(name), null);
+});
 test('published portions retain their actual measure weight, including fractional portions', () => {
   assert.deepEqual(normalizePortions({ foodPortions: [{ id: 1, amount: 1, modifier: 'cup', gramWeight: 158 }, { id: 2, amount: 0.5, modifier: 'cup', gramWeight: 79 }, { id: 3, portionDescription: '1 slice', gramWeight: 30 }, { id: 4, amount: 1, measureUnit: { name: 'piece' }, gramWeight: 50 }] }), [{ id: '1', label: '1 cup', grams: 158 }, { id: '2', label: '0.5 cup', grams: 79 }, { id: '3', label: '1 slice', grams: 30 }, { id: '4', label: '1 piece', grams: 50 }]);
   assert.deepEqual(normalizePortions({ foodPortions: [{ modifier: 'cup', gramWeight: 0 }, { modifier: 'cup' }, { gramWeight: 100 }, { modifier: 'cup', gramWeight: 'NaN' }] }), []);
