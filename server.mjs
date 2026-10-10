@@ -4,22 +4,23 @@ import { fileURLToPath } from 'node:url';
 import { resolve, extname } from 'node:path';
 import { createFoodSearch, FoodApiError } from './food-api.mjs';
 const root = fileURLToPath(new URL('.', import.meta.url));
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
 const searchFoods = createFoodSearch();
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
-  if (url.pathname === '/api/foods/search') {
+  const foodDetail = url.pathname.match(/^\/api\/foods\/usda\/(\d{1,12})$/);
+  if (url.pathname === '/api/foods/search' || foodDetail) {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
     if (req.method !== 'GET') { res.writeHead(405, { Allow: 'GET' }); res.end(JSON.stringify({ error: 'Use GET for food search.' })); return; }
-    try { res.end(JSON.stringify(await searchFoods(url.searchParams.get('q')))); }
+    try { res.end(JSON.stringify(await (foodDetail ? searchFoods.details(foodDetail[1]) : searchFoods(url.searchParams.get('q'))))); }
     catch (error) { res.writeHead(error instanceof FoodApiError ? error.status : 500); res.end(JSON.stringify({ error: error instanceof FoodApiError ? error.message : 'Food search unavailable.' })); }
     return;
   }
   try {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
     const relative = pathname === '/' ? 'index.html' : pathname.slice(1);
-    if (!(relative === 'index.html' || relative === 'styles.css' || /^src\/[a-z-]+\.js$/.test(relative))) throw Error('Not found');
+    if (!(['index.html', 'styles.css', 'icon.svg', 'manifest.webmanifest'].includes(relative) || /^src\/[a-z-]+\.js$/.test(relative))) throw Error('Not found');
     const path = resolve(root, relative);
     if (!path.startsWith(root)) throw Error('Not found');
     const content = await readFile(path);

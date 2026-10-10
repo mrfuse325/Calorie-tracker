@@ -1,5 +1,24 @@
 // Search responses from generic USDA food types express nutrient values per 100 g.
 const genericTypes = new Set(['Foundation', 'SR Legacy', 'Survey (FNDDS)']);
+export function normalizePortions(food) {
+  // Search and detail responses use different names for the same measures.
+  const portions = [...(Array.isArray(food.foodPortions) ? food.foodPortions : []), ...(Array.isArray(food.foodMeasures) ? food.foodMeasures : [])];
+  const seen = new Set();
+  return portions.flatMap((portion, index) => {
+    const grams = Number(portion.gramWeight);
+    if (!Number.isFinite(grams) || grams <= 0 || grams > 10000) return [];
+    const amount = Number(portion.amount);
+    const measure = portion.measureUnit?.name?.trim();
+    const description = portion.portionDescription?.trim() || portion.disseminationText?.trim();
+    const modifier = portion.modifier?.trim();
+    const label = description || (modifier ? `${Number.isFinite(amount) && amount > 0 ? amount + ' ' : ''}${modifier}` : measure && !/^(undetermined|unknown)$/i.test(measure) && Number.isFinite(amount) && amount > 0 ? `${amount} ${measure}` : `USDA portion ${index + 1}`);
+    if (typeof label !== 'string' || !label.trim()) return [];
+    const signature = `${label.trim()}:${grams}`;
+    if (seen.has(signature)) return [];
+    seen.add(signature);
+    return [{ id: String(portion.id ?? `measure-${index}`), label: label.trim().slice(0, 100), grams }];
+  }).slice(0, 30);
+}
 function nutrient(food, id, unit) {
   const rows = Array.isArray(food.foodNutrients) ? food.foodNutrients : [];
   const item = rows.find(row => Number(row.nutrientId ?? row.nutrient?.id) === id && String(row.unitName ?? row.nutrient?.unitName).toUpperCase() === unit);
@@ -22,6 +41,7 @@ export function normalizeFood(food) {
   return {
     source: 'usda', source_id: String(food.fdcId), food_name: food.description.slice(0, 150),
     data_type: food.dataType, basis_quantity: 100, basis_unit: 'g', basis,
+    portions: normalizePortions(food),
     fetched_at: new Date().toISOString(), provider_url: `https://fdc.nal.usda.gov/food-details/${food.fdcId}/nutrients`,
   };
 }

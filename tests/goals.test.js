@@ -37,3 +37,27 @@ test('rejects missing measurements, unsupported people, invalid activity and mis
   }
   for (const patch of [{ feet: 5.5 }, { inches: 12 }, { pounds: '' }, { feet: 3, inches: 0 }]) assert.throws(() => calculateGoals({ ...profile, measurement: 'us', feet: 5, inches: 10, pounds: 180, ...patch }));
 });
+test('weekly weight-loss rates subtract 250, 500, or 1000 kcal and rescale all macros', () => {
+  const result = calculateGoals({ ...profile, loss_rate: 1 });
+  assert.equal(result.maintenance_kcal, 2136); assert.equal(result.goals.energy_kcal, 1636); assert.equal(result.daily_deficit, 500);
+  assert.equal(result.can_apply, true);
+  assert.equal(result.goals.protein_g, 81.8);
+  assert.equal(result.goals.carbs_g, 204.5);
+  assert.ok(Math.abs(result.goals.fat_g * 9 + result.goals.protein_g * 4 + result.goals.carbs_g * 4 - 1636) < 1e-9);
+  assert.deepEqual(result.options.map(option => option.calories), [2136, 1886, 1636, 1136]);
+  assert.equal(result.options[3].eligible, false);
+  assert.throws(() => calculateGoals({ ...profile, loss_rate: 3 }));
+  assert.throws(() => calculateGoals({ ...profile, loss_rate: 0.75 }));
+});
+test('aggressive or underweight loss targets cannot be automatically applied', () => {
+  const low = calculateGoals({ ...profile, loss_rate: 2 });
+  assert.equal(low.goals.energy_kcal, 1136); assert.equal(low.can_apply, false);
+  const underweight = calculateGoals({ ...profile, weight_kg: 50, loss_rate: 0.5 });
+  assert.equal(underweight.can_apply, false); assert.match(underweight.restriction, /underweight/);
+});
+test('reference activity factor 1.465 supports feet and pounds consistently', () => {
+  const result = calculateGoals({ ...profile, age: 25, measurement: 'us', feet: 5, inches: 10, pounds: 165, activity: 'some', loss_rate: 1 });
+  assert.equal(result.activity_factor, 1.465);
+  assert.equal(result.maintenance_kcal, Math.round((10 * 165 * 0.45359237 + 6.25 * 70 * 2.54 - 5 * 25 + 5) * 1.465));
+  assert.equal(result.goals.energy_kcal, result.maintenance_kcal - 500);
+});

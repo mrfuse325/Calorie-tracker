@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "node --env-file-if-exists=.env server.mjs", "test": "node --test", "test:browser": "node scripts/browser-smoke.mjs", "check": "node scripts/check.mjs" },
+  "scripts": { "dev": "node --env-file-if-exists=.env server.mjs", "build": "node scripts/build.mjs", "deploy": "npm run build && npx wrangler deploy", "test": "node --test", "test:browser": "node scripts/browser-smoke.mjs", "check": "node scripts/check.mjs" },
   "engines": { "node": ">=22" }
 }
