@@ -22,7 +22,8 @@ test('missing serving data uses food-specific estimates rather than one gram', (
 });
 test('published portions retain their actual measure weight, including fractional portions', () => {
   assert.deepEqual(normalizePortions({ foodPortions: [{ id: 1, amount: 1, modifier: 'cup', gramWeight: 158 }, { id: 2, amount: 0.5, modifier: 'cup', gramWeight: 79 }, { id: 3, portionDescription: '1 slice', gramWeight: 30 }, { id: 4, amount: 1, measureUnit: { name: 'piece' }, gramWeight: 50 }] }), [{ id: '1', label: '1 cup', grams: 158 }, { id: '2', label: '0.5 cup', grams: 79 }, { id: '3', label: '1 slice', grams: 30 }, { id: '4', label: '1 piece', grams: 50 }]);
-  assert.deepEqual(normalizePortions({ foodPortions: [{ modifier: 'cup', gramWeight: 0 }, { modifier: 'cup' }, { gramWeight: 100 }, { modifier: 'cup', gramWeight: 'NaN' }] }), []);
+  assert.deepEqual(normalizePortions({ foodPortions: [{ modifier: 'cup', gramWeight: 0 }, { modifier: 'cup' }, { modifier: 'cup', gramWeight: 'NaN' }] }), []);
+  assert.deepEqual(normalizePortions({ foodPortions: [{ id: 9, gramWeight: 227, portionDescription: ' ', modifier: ' ', measureUnit: { name: 'undetermined' } }] }), [{ id: '9', label: 'USDA portion 1', grams: 227 }]);
 });
 test('per-serving nutrition uses actual serving grams, preserves missing values, and logs fractional servings', () => {
   const reference = servingReference(food, 158, '1 cup');

@@ -6,8 +6,10 @@ export function normalizePortions(food) {
     const grams = Number(portion.gramWeight);
     if (!Number.isFinite(grams) || grams <= 0 || grams > 10000) return [];
     const amount = Number(portion.amount);
-    const measure = portion.measureUnit?.name;
-    const label = portion.portionDescription || (portion.modifier ? `${Number.isFinite(amount) && amount > 0 ? amount + ' ' : ''}${portion.modifier}` : measure && !['undetermined', 'Unknown'].includes(measure) && Number.isFinite(amount) && amount > 0 ? `${amount} ${measure}` : null);
+    const measure = portion.measureUnit?.name?.trim();
+    const description = portion.portionDescription?.trim();
+    const modifier = portion.modifier?.trim();
+    const label = description || (modifier ? `${Number.isFinite(amount) && amount > 0 ? amount + ' ' : ''}${modifier}` : measure && !/^(undetermined|unknown)$/i.test(measure) && Number.isFinite(amount) && amount > 0 ? `${amount} ${measure}` : `USDA portion ${index + 1}`);
     if (typeof label !== 'string' || !label.trim()) return [];
     return [{ id: String(portion.id ?? index), label: label.trim().slice(0, 100), grams }];
   }).slice(0, 30);

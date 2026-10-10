@@ -58,6 +58,7 @@ try {
     const realFetch = window.fetch.bind(window);
     window.__searchQueries = [];
     window.fetch = async (url, options) => {
+      if (String(url).startsWith('/api/foods/usda/') && window.__noPortions) return new Response(JSON.stringify({food:{source:'usda',source_id:'168878',food_name:'Unclassified mixed meal',data_type:'SR Legacy',basis_quantity:100,basis_unit:'g',basis:{energy_kcal:130,protein_g:2.69,carbs_g:28.17,fat_g:0.28},portions:[],provider_url:'https://fdc.nal.usda.gov/food-details/168878/nutrients'}}));
       if (String(url).startsWith('/api/foods/usda/')) return new Response(JSON.stringify({food:{source:'usda',source_id:'168878',food_name:'Rice, white, cooked',data_type:'SR Legacy',basis_quantity:100,basis_unit:'g',basis:{energy_kcal:130,protein_g:2.69,carbs_g:28.17,fat_g:0.28},portions:[{id:'cup',label:'1 cup',grams:158}],fetched_at:'2026-10-08T00:00:00Z',provider_url:'https://fdc.nal.usda.gov/food-details/168878/nutrients'}}));
       if (!String(url).startsWith('/api/foods/search')) return realFetch(url, options);
       const query = new URL(url, location.origin).searchParams.get('q');
@@ -112,6 +113,11 @@ try {
   assert.equal(await evaluate('document.querySelector("#entry-form").elements.energy_kcal.value'), '205.4');
   assert.equal(await evaluate('document.querySelector("#entry-form").elements.unit.value'), 'serving');
   assert.equal(await evaluate('document.querySelector("#entry-form").elements.basis_quantity.value'), '1');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.serving_grams.value'), '158');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.serving_grams.closest("label").hidden'), true);
+  await evaluate(`document.querySelector('#food-portion').value='custom'; document.querySelector('#food-portion').dispatchEvent(new Event('change'));`);
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.serving_grams.value'), '158');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.serving_grams.closest("label").hidden'), false);
   await evaluate(`document.querySelector('#entry-form').elements.quantity.value = 1.5; document.querySelector('#entry-form').requestSubmit();`);
   await waitFor('!document.querySelector("#entry-dialog").open');
   assert.match(await evaluate('document.querySelector("#summary").textContent'), /308.1 kcal/);
@@ -119,6 +125,15 @@ try {
   assert.match(await evaluate('document.querySelector("#meals").textContent'), /USDA food estimate/);
   await reload();
   assert.match(await evaluate('document.querySelector("#meals").textContent'), /USDA food estimate/);
+  await evaluate(`window.__noPortions=true; document.querySelector('#add-open').click(); document.querySelector('#entry-form').elements.food_name.value='mixed meal'; document.querySelector('#food-search').click();`);
+  await waitFor('document.querySelector("#food-results button") !== null');
+  await evaluate(`document.querySelector('#food-results button').click()`);
+  await waitFor('document.querySelector("#food-portion").value === "weight-reference"');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.unit.value'), 'g');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.quantity.value'), '100');
+  assert.equal(await evaluate('document.querySelector("#entry-form").elements.serving_grams.required'), false);
+  assert.equal(await evaluate('document.querySelector("#entry-form").checkValidity()'), true);
+  await evaluate(`window.__noPortions=false; document.querySelector('#entry-close').click()`);
   await evaluate(`document.querySelector('#add-open').click(); document.querySelector('#entry-form').elements.food_name.value='slow'; document.querySelector('#food-search').click(); document.querySelector('#entry-form').elements.food_name.value='rice'; document.querySelector('#food-search').click();`);
   await waitFor('document.querySelector("#food-results button") !== null');
   await pause(1300);

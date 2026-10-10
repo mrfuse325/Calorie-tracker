@@ -13,6 +13,7 @@ export function setupFoodSearch({ form, preview, isBusy }) {
     for (const option of form.elements.unit.options) option.disabled = Boolean(selected) && option.value === 'ml';
     gramsInput.required = Boolean(selected) && form.elements.unit.value === 'serving';
     gramsInput.disabled = !selected || form.elements.unit.value !== 'serving';
+    gramsInput.closest('label').hidden = portionSelect.value !== 'custom' || form.elements.unit.value !== 'serving';
     if (!selected) return;
     source.append(document.createTextNode('USDA estimate. The selected portion is one serving. Change the portion or number of servings eaten below. '));
     const link = document.createElement('a'); link.textContent = 'View source'; link.href = selected.provider_url;
@@ -52,7 +53,13 @@ export function setupFoodSearch({ form, preview, isBusy }) {
       portionSelect.value = portion.id; gramsInput.value = portion.grams;
       form.elements.serving_label.value = portion.label;
     } else {
-      portionSelect.value = 'custom'; gramsInput.value = ''; form.elements.serving_label.value = '1 serving';
+      // USDA's 100 g nutrient basis is a usable weight reference, not a serving.
+      // Never leave the user at a required blank serving-weight field.
+      const weight = document.createElement('option'); weight.value = 'weight-reference';
+      weight.textContent = '100 g weight reference (serving unavailable)'; portionSelect.prepend(weight);
+      portionSelect.value = weight.value; gramsInput.value = '';
+      form.elements.serving_label.value = '';
+      form.elements.unit.value = 'g'; form.elements.quantity.value = savedEntry?.unit === 'g' ? savedEntry.quantity : '100';
     }
   }
   async function choose(food) {
@@ -73,7 +80,7 @@ export function setupFoodSearch({ form, preview, isBusy }) {
     selected = resolved;
     name.value = resolved.food_name; form.elements.unit.value = 'serving'; form.elements.quantity.value = '1';
     setPortions(resolved); updatePortion();
-    status.textContent = resolved.portions?.length ? (resolved.portions.some(portion => portion.estimated) ? 'An estimated standard portion is selected because no food-specific serving was available. Change it to match what you ate.' : 'One food-specific serving is selected. Change the portion or number of servings eaten.') : `${detailsFailed ? 'Serving details could not be loaded. ' : 'This food has no published or recognized standard serving size. '}Enter the grams in your serving, or choose grams as the unit.`;
+    status.textContent = resolved.portions?.length ? (resolved.portions.some(portion => portion.estimated) ? 'An estimated standard portion is selected because no food-specific serving was available. Change it to match what you ate.' : 'The USDA portion weight is applied automatically. Change the portion or number of servings eaten.') : `${detailsFailed ? 'USDA serving details could not be loaded. ' : 'USDA did not provide a usable serving for this food. '}Nutrition is shown for 100 g instead. Adjust Amount eaten in grams, retry the lookup, or choose My serving size to define a portion.`;
     form.elements.quantity.focus();
   }
   async function search() {
@@ -99,6 +106,11 @@ export function setupFoodSearch({ form, preview, isBusy }) {
     }
   }
   portionSelect.onchange = () => {
+    if (portionSelect.value === 'weight-reference') {
+      form.elements.unit.value = 'g'; form.elements.quantity.value = '100';
+    } else if (form.elements.unit.value !== 'serving') {
+      form.elements.unit.value = 'serving'; form.elements.quantity.value = '1';
+    }
     const portion = selected?.portions?.find(item => item.id === portionSelect.value);
     if (portion) {
       gramsInput.value = portion.grams;
