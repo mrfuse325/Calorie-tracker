@@ -1,4 +1,5 @@
 import { nutrients, scale } from './nutrition.js';
+import { cachedUsdaPortions } from './usda-serving-cache.js';
 
 // Provider ordering can put a weight reference ahead of household measures.
 // Prefer a published whole household portion without inventing a food's size.
@@ -26,6 +27,8 @@ export function suggestedPortion(foodName = '') {
 export function availablePortions(food) {
   const published = (food.portions || []).filter(portion => portion.grams > 1);
   if (published.length) return published;
+  const cached = cachedUsdaPortions(food);
+  if (cached.length) return cached;
   const estimate = suggestedPortion(food.food_name);
   return estimate ? [estimate] : [];
 }

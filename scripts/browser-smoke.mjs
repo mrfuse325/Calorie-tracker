@@ -57,12 +57,15 @@ try {
   await command('Page.addScriptToEvaluateOnNewDocument', { source: `
     const realFetch = window.fetch.bind(window);
     window.__searchQueries = [];
+    window.__easyDetails = 0;
     window.fetch = async (url, options) => {
+      if (String(url).startsWith('/api/foods/usda/2708815')) { window.__easyDetails++; return new Response(JSON.stringify({error:'USDA has paused food lookup.'}), {status:429}); }
       if (String(url).startsWith('/api/foods/usda/') && window.__noPortions) return new Response(JSON.stringify({food:{source:'usda',source_id:'168878',food_name:'Unclassified mixed meal',data_type:'SR Legacy',basis_quantity:100,basis_unit:'g',basis:{energy_kcal:130,protein_g:2.69,carbs_g:28.17,fat_g:0.28},portions:[],provider_url:'https://fdc.nal.usda.gov/food-details/168878/nutrients'}}));
       if (String(url).startsWith('/api/foods/usda/')) return new Response(JSON.stringify({food:{source:'usda',source_id:'168878',food_name:'Rice, white, cooked',data_type:'SR Legacy',basis_quantity:100,basis_unit:'g',basis:{energy_kcal:130,protein_g:2.69,carbs_g:28.17,fat_g:0.28},portions:[{id:'cup',label:'1 cup',grams:158}],fetched_at:'2026-10-08T00:00:00Z',provider_url:'https://fdc.nal.usda.gov/food-details/168878/nutrients'}}));
       if (!String(url).startsWith('/api/foods/search')) return realFetch(url, options);
       const query = new URL(url, location.origin).searchParams.get('q');
       window.__searchQueries.push(query);
+      if (query === 'easy mac') return new Response(JSON.stringify({foods:[{source:'usda',source_id:'2708815',food_name:'Macaroni or noodles with cheese, Easy Mac type',data_type:'Survey (FNDDS)',basis_quantity:100,basis_unit:'g',basis:{energy_kcal:110,protein_g:3.3,carbs_g:20.1,fat_g:1.9},portions:window.__easyNoMeasures ? [] : [{id:'cup',label:'1 cup',grams:230},{id:'tub',label:'1 microwavable tub, regular size, prepared',grams:212}],provider_url:'https://fdc.nal.usda.gov/food-details/2708815/nutrients'}]}));
       if (query === 'slow') await new Promise(resolve => setTimeout(resolve, 1200));
       if (query === 'offline') return new Response(JSON.stringify({error:'Food search unavailable. Enter nutrition manually.'}), {status:502});
       return new Response(JSON.stringify({mode:'demo', foods:[{source:'usda', source_id:'168878', food_name:query === 'slow' ? 'Old search result' : 'Rice, white, cooked', data_type:'SR Legacy', basis_quantity:100, basis_unit:'g', basis:{energy_kcal:130,protein_g:2.69,carbs_g:28.17,fat_g:0.28}, fetched_at:'2026-10-08T00:00:00Z', provider_url:'https://fdc.nal.usda.gov/food-details/168878/nutrients'}]}));
@@ -134,6 +137,21 @@ try {
   assert.equal(await evaluate('document.querySelector("#entry-form").elements.serving_grams.required'), false);
   assert.equal(await evaluate('document.querySelector("#entry-form").checkValidity()'), true);
   await evaluate(`window.__noPortions=false; document.querySelector('#entry-close').click()`);
+  for (const failDetails of [false, true]) {
+    await evaluate(`window.__easyNoMeasures=${failDetails}; document.querySelector('#add-open').click(); document.querySelector('#entry-form').elements.food_name.value='easy mac'; document.querySelector('#food-search').click();`);
+    await waitFor('document.querySelector("#food-results button") !== null');
+    await evaluate(`document.querySelector('#food-results button').click()`);
+    await waitFor('document.querySelector("#entry-form").elements.energy_kcal.value === "253"');
+    assert.equal(await evaluate('document.querySelector("#entry-form").elements.unit.value'), 'serving');
+    assert.equal(await evaluate('document.querySelector("#entry-form").elements.serving_grams.value'), '230');
+    assert.equal(await evaluate('document.querySelector("#entry-form").checkValidity()'), true);
+    assert.equal(await evaluate('window.__easyDetails'), failDetails ? 1 : 0);
+    await evaluate(`const servingForm=document.querySelector('#entry-form'); servingForm.elements.quantity.value=0.5; servingForm.elements.quantity.dispatchEvent(new Event('input',{bubbles:true}));`);
+    assert.match(await evaluate('document.querySelector("#preview").textContent'), /126.5 kcal/);
+    await evaluate(`const portion=document.querySelector('#food-portion'); portion.value=[...portion.options].find(option=>option.textContent.includes('regular size')).value; portion.dispatchEvent(new Event('change'));`);
+    assert.equal(await evaluate('document.querySelector("#entry-form").elements.energy_kcal.value'), '233.2');
+    await evaluate(`document.querySelector('#entry-close').click()`);
+  }
   await evaluate(`document.querySelector('#add-open').click(); document.querySelector('#entry-form').elements.food_name.value='slow'; document.querySelector('#food-search').click(); document.querySelector('#entry-form').elements.food_name.value='rice'; document.querySelector('#food-search').click();`);
   await waitFor('document.querySelector("#food-results button") !== null');
   await pause(1300);

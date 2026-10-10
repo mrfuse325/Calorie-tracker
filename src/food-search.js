@@ -71,16 +71,20 @@ export function setupFoodSearch({ form, preview, isBusy }) {
     describeSelection(); preview();
     let resolved = food, detailsFailed = false;
     try {
-      const response = await fetch(`/api/foods/usda/${encodeURIComponent(food.source_id)}`, { signal: controller.signal });
-      const data = await response.json();
-      if (!response.ok || !data.food) throw Error('Portions unavailable');
-      resolved = data.food;
+      // Search measures are already sufficient; avoid a second quota-consuming
+      // request that could discard a valid portion or fail on a shared demo key.
+      if (!food.portions?.some(portion => portion.grams > 1)) {
+        const response = await fetch(`/api/foods/usda/${encodeURIComponent(food.source_id)}`, { signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok || !data.food) throw Error('Portions unavailable');
+        resolved = data.food;
+      }
     } catch (error) { if (error.name === 'AbortError') return; detailsFailed = true; }
     if (version !== generation || isBusy() || !$('#entry-dialog').open) return;
     selected = resolved;
     name.value = resolved.food_name; form.elements.unit.value = 'serving'; form.elements.quantity.value = '1';
     setPortions(resolved); updatePortion();
-    status.textContent = resolved.portions?.length ? (resolved.portions.some(portion => portion.estimated) ? 'An estimated standard portion is selected because no food-specific serving was available. Change it to match what you ate.' : 'The USDA portion weight is applied automatically. Change the portion or number of servings eaten.') : `${detailsFailed ? 'USDA serving details could not be loaded. ' : 'USDA did not provide a usable serving for this food. '}Nutrition is shown for 100 g instead. Adjust Amount eaten in grams, retry the lookup, or choose My serving size to define a portion.`;
+    status.textContent = resolved.portions?.length ? (resolved.portions.some(portion => portion.estimated) ? 'An estimated standard portion is selected because no food-specific serving was available. Change it to match what you ate.' : resolved.portions.some(portion => portion.cached) ? 'A saved USDA portion is applied because live serving details were unavailable. Change the portion or number of servings eaten.' : 'The USDA portion weight is applied automatically. Change the portion or number of servings eaten.') : `${detailsFailed ? 'USDA serving details could not be loaded. ' : 'USDA did not provide a usable serving for this food. '}Nutrition is shown for 100 g instead. Adjust Amount eaten in grams, retry the lookup, or choose My serving size to define a portion.`;
     form.elements.quantity.focus();
   }
   async function search() {

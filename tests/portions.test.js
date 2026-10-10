@@ -25,6 +25,21 @@ test('published portions retain their actual measure weight, including fractiona
   assert.deepEqual(normalizePortions({ foodPortions: [{ modifier: 'cup', gramWeight: 0 }, { modifier: 'cup' }, { modifier: 'cup', gramWeight: 'NaN' }] }), []);
   assert.deepEqual(normalizePortions({ foodPortions: [{ id: 9, gramWeight: 227, portionDescription: ' ', modifier: ' ', measureUnit: { name: 'undetermined' } }] }), [{ id: '9', label: 'USDA portion 1', grams: 227 }]);
 });
+test('USDA search measures keep household labels and deduplicate detail portions', () => {
+  const measure = { id: 10, disseminationText: '1 cup', gramWeight: 230 };
+  const portions = normalizePortions({ foodMeasures: [measure, { id: 11, disseminationText: '1 microwavable tub, regular size, prepared', gramWeight: 212 }], foodPortions: [{ id: 10, portionDescription: '1 cup', gramWeight: 230 }] });
+  assert.deepEqual(portions, [{ id: '10', label: '1 cup', grams: 230 }, { id: '11', label: '1 microwavable tub, regular size, prepared', grams: 212 }]);
+});
+test('reported Easy Mac record has a saved cup portion if live USDA details are unavailable', () => {
+  const easyMac = { ...food, source_id: '2708815', food_name: 'Macaroni or noodles with cheese, Easy Mac type', portions: [], basis: { energy_kcal: 110, protein_g: 3.3, carbs_g: 20.1, fat_g: 1.9 } };
+  const portions = availablePortions(easyMac);
+  assert.equal(defaultPortion(portions).grams, 230);
+  assert.equal(servingReference(easyMac, 230, '1 cup').basis.energy_kcal, 253);
+  assert.equal(servingReference(easyMac, 212, '1 tub').basis.energy_kcal, 233.2);
+  assert.equal(availablePortions({ ...easyMac, portions: [{ id: 'live', label: '1 cup', grams: 240 }] })[0].grams, 240);
+  assert.deepEqual(availablePortions({ ...easyMac, source_id: '999' }), []);
+  assert.deepEqual(availablePortions({ ...easyMac, food_name: 'Macaroni or noodles with cheese, restaurant' }), []);
+});
 test('per-serving nutrition uses actual serving grams, preserves missing values, and logs fractional servings', () => {
   const reference = servingReference(food, 158, '1 cup');
   assert.equal(reference.basis.energy_kcal, 205.4);

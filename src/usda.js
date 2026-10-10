@@ -1,17 +1,22 @@
 // Search responses from generic USDA food types express nutrient values per 100 g.
 const genericTypes = new Set(['Foundation', 'SR Legacy', 'Survey (FNDDS)']);
 export function normalizePortions(food) {
-  const portions = Array.isArray(food.foodPortions) ? food.foodPortions : [];
+  // Search and detail responses use different names for the same measures.
+  const portions = [...(Array.isArray(food.foodPortions) ? food.foodPortions : []), ...(Array.isArray(food.foodMeasures) ? food.foodMeasures : [])];
+  const seen = new Set();
   return portions.flatMap((portion, index) => {
     const grams = Number(portion.gramWeight);
     if (!Number.isFinite(grams) || grams <= 0 || grams > 10000) return [];
     const amount = Number(portion.amount);
     const measure = portion.measureUnit?.name?.trim();
-    const description = portion.portionDescription?.trim();
+    const description = portion.portionDescription?.trim() || portion.disseminationText?.trim();
     const modifier = portion.modifier?.trim();
     const label = description || (modifier ? `${Number.isFinite(amount) && amount > 0 ? amount + ' ' : ''}${modifier}` : measure && !/^(undetermined|unknown)$/i.test(measure) && Number.isFinite(amount) && amount > 0 ? `${amount} ${measure}` : `USDA portion ${index + 1}`);
     if (typeof label !== 'string' || !label.trim()) return [];
-    return [{ id: String(portion.id ?? index), label: label.trim().slice(0, 100), grams }];
+    const signature = `${label.trim()}:${grams}`;
+    if (seen.has(signature)) return [];
+    seen.add(signature);
+    return [{ id: String(portion.id ?? `measure-${index}`), label: label.trim().slice(0, 100), grams }];
   }).slice(0, 30);
 }
 function nutrient(food, id, unit) {
