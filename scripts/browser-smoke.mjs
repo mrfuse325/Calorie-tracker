@@ -146,9 +146,9 @@ try {
     assert.equal(await evaluate('document.querySelector("#entry-form").elements.serving_grams.value'), '230');
     assert.equal(await evaluate('document.querySelector("#entry-form").checkValidity()'), true);
     assert.equal(await evaluate('window.__easyDetails'), failDetails ? 1 : 0);
-    await evaluate(`const servingForm=document.querySelector('#entry-form'); servingForm.elements.quantity.value=0.5; servingForm.elements.quantity.dispatchEvent(new Event('input',{bubbles:true}));`);
+    await evaluate(`{ const servingForm=document.querySelector('#entry-form'); servingForm.elements.quantity.value=0.5; servingForm.elements.quantity.dispatchEvent(new Event('input',{bubbles:true})); }`);
     assert.match(await evaluate('document.querySelector("#preview").textContent'), /126.5 kcal/);
-    await evaluate(`const portion=document.querySelector('#food-portion'); portion.value=[...portion.options].find(option=>option.textContent.includes('regular size')).value; portion.dispatchEvent(new Event('change'));`);
+    await evaluate(`{ const portion=document.querySelector('#food-portion'); portion.value=[...portion.options].find(option=>option.textContent.includes('regular size')).value; portion.dispatchEvent(new Event('change')); }`);
     assert.equal(await evaluate('document.querySelector("#entry-form").elements.energy_kcal.value'), '233.2');
     await evaluate(`document.querySelector('#entry-close').click()`);
   }
