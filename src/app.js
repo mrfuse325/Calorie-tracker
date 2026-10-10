@@ -100,7 +100,10 @@ function preview() {
 }
 entryForm.addEventListener('input', preview);
 const foodSearch = setupFoodSearch({ form: entryForm, preview, isBusy: () => busy });
-$('#entry-dialog').addEventListener('close', () => foodSearch.cancel());
+$('#entry-dialog').addEventListener('close', () => {
+  // A close event can arrive after the dialog has already been reopened.
+  if (!$('#entry-dialog').open) foodSearch.cancel();
+});
 setupGoalCalculator({ isBusy: () => busy, setBusy: value => { busy = value; render(); }, saved: next => { goals = next; notice('Calculated daily targets saved. You can adjust them with Set targets manually.'); render(); } });
 entryForm.addEventListener('submit', async event => {
   event.preventDefault(); if (busy) return;
